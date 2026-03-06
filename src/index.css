@@ -1,0 +1,23 @@
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Caveat:wght@400;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Nunito", ui-sans-serif, system-ui, sans-serif;
+  --font-handwriting: "Caveat", cursive;
+  --font-serif: "Playfair Display", serif;
+  
+  --color-love-50: #fff0f3;
+  --color-love-100: #ffe3e8;
+  --color-love-200: #ffc9d2;
+  --color-love-300: #ff9fb0;
+  --color-love-400: #ff6b85;
+  --color-love-500: #f43f5e;
+  --color-love-600: #e11d48;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: linear-gradient(180deg, #FFF0F3 0%, #FFE3E8 100%);
+  min-height: 100vh;
+  color: #4a4a4a;
+}
