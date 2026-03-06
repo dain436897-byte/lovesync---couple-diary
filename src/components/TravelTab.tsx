@@ -2,6 +2,7 @@ import { motion } from "motion/react";
 import { Plane, Edit2, Book, History, MapPin, Calendar, Clock, Image as ImageIcon, Trash2, Wallet } from "lucide-react";
 import React, { useState, FormEvent, useRef, useEffect } from "react";
 import { Modal } from "./ui/Modal";
+import { useFirebaseSync } from "../hooks/useFirebaseSync";
 import { TripPacking } from "./travel/TripPacking";
 import { TripItinerary } from "./travel/TripItinerary";
 import { TripDiary } from "./travel/TripDiary";
@@ -48,64 +49,56 @@ const initialPastTrips = [
 
 export function TravelTab() {
   const [view, setView] = useState<'overview' | 'packing' | 'itinerary' | 'diary'>('overview');
-  const [trip, setTrip] = useState(initialTrip);
-  const [pastTrips, setPastTrips] = useState(initialPastTrips);
+  const [trip, setTrip] = useFirebaseSync('couple_trip', initialTrip);
+  const [pastTrips, setPastTrips] = useFirebaseSync('couple_past_trips', initialPastTrips);
   const [selectedPastTrip, setSelectedPastTrip] = useState<any>(null);
-  
+
   // Modals state
   const [isEditTripModalOpen, setIsEditTripModalOpen] = useState(false);
   const [isPastTripModalOpen, setIsPastTripModalOpen] = useState(false);
-  
+
   // Form state
   const [editTripData, setEditTripData] = useState({ destination: "", startDate: "", endDate: "", time: "", image: "", budget: "" });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    const savedTrip = localStorage.getItem('couple_trip');
-    if (savedTrip) {
-      setTrip(JSON.parse(savedTrip));
-    }
-    const savedPastTrips = localStorage.getItem('couple_past_trips');
-    if (savedPastTrips) {
-      setPastTrips(JSON.parse(savedPastTrips));
-    }
-  }, []);
+  const [countdown, setCountdown] = useState({ days: 0, hours: 0, minutes: 0 });
 
   useEffect(() => {
-    localStorage.setItem('couple_trip', JSON.stringify(trip));
-  }, [trip]);
+    const calculateCountdown = () => {
+      const now = new Date().getTime();
+      // Combine date and time to parse safely across browsers
+      const tripDateStr = `${trip.startDate}T${trip.time || '00:00'}:00`;
+      const tripDate = new Date(tripDateStr).getTime();
+      const distance = tripDate - now;
 
-  useEffect(() => {
-    localStorage.setItem('couple_past_trips', JSON.stringify(pastTrips));
-  }, [pastTrips]);
+      if (isNaN(distance) || distance < 0) {
+        setCountdown({ days: 0, hours: 0, minutes: 0 });
+        return;
+      }
 
-  // Calculate countdown
-  const calculateCountdown = () => {
-    const now = new Date().getTime();
-    const tripDate = new Date(`${trip.startDate}T${trip.time}:00`).getTime();
-    const distance = tripDate - now;
+      const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
 
-    if (distance < 0) return { days: 0, hours: 0, minutes: 0 };
+      setCountdown({ days, hours, minutes });
+    };
 
-    const days = Math.floor(distance / (1000 * 60 * 60 * 24));
-    const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+    calculateCountdown(); // Run immediately
+    const interval = setInterval(calculateCountdown, 60000); // Update every minute
 
-    return { days, hours, minutes };
-  };
-
-  const countdown = calculateCountdown();
+    return () => clearInterval(interval);
+  }, [trip.startDate, trip.time]);
 
   // Trip Edit Handler
   const handleEditTrip = (e: FormEvent) => {
     e.preventDefault();
     if (!editTripData.destination || !editTripData.startDate) return;
-    setTrip(prev => ({ 
-      ...prev, 
-      destination: editTripData.destination, 
-      startDate: editTripData.startDate, 
-      endDate: editTripData.endDate, 
-      time: editTripData.time, 
+    setTrip(prev => ({
+      ...prev,
+      destination: editTripData.destination,
+      startDate: editTripData.startDate,
+      endDate: editTripData.endDate,
+      time: editTripData.time,
       image: editTripData.image,
       budget: Number(editTripData.budget) || 0
     }));
@@ -113,11 +106,11 @@ export function TravelTab() {
   };
 
   const openEditTripModal = () => {
-    setEditTripData({ 
-      destination: trip.destination, 
-      startDate: trip.startDate, 
-      endDate: trip.endDate, 
-      time: trip.time, 
+    setEditTripData({
+      destination: trip.destination,
+      startDate: trip.startDate,
+      endDate: trip.endDate,
+      time: trip.time,
       image: trip.image,
       budget: trip.budget?.toString() || ""
     });
@@ -148,36 +141,36 @@ export function TravelTab() {
   // Sub-view rendering
   if (view === 'packing') {
     return (
-      <TripPacking 
-        items={trip.packingList} 
+      <TripPacking
+        items={trip.packingList}
         tripImage={trip.image}
         tripDestination={trip.destination}
-        onUpdate={(items) => setTrip(prev => ({ ...prev, packingList: items }))} 
-        onBack={() => setView('overview')} 
+        onUpdate={(items) => setTrip(prev => ({ ...prev, packingList: items }))}
+        onBack={() => setView('overview')}
       />
     );
   }
 
   if (view === 'itinerary') {
     return (
-      <TripItinerary 
-        items={trip.itinerary} 
+      <TripItinerary
+        items={trip.itinerary}
         tripImage={trip.image}
         tripDestination={trip.destination}
-        onUpdate={(items) => setTrip(prev => ({ ...prev, itinerary: items }))} 
-        onBack={() => setView('overview')} 
+        onUpdate={(items) => setTrip(prev => ({ ...prev, itinerary: items }))}
+        onBack={() => setView('overview')}
       />
     );
   }
 
   if (view === 'diary') {
     return (
-      <TripDiary 
-        items={trip.diary} 
+      <TripDiary
+        items={trip.diary}
         tripImage={trip.image}
         tripDestination={trip.destination}
-        onUpdate={(items) => setTrip(prev => ({ ...prev, diary: items }))} 
-        onBack={() => setView('overview')} 
+        onUpdate={(items) => setTrip(prev => ({ ...prev, diary: items }))}
+        onBack={() => setView('overview')}
       />
     );
   }
@@ -185,37 +178,37 @@ export function TravelTab() {
   return (
     <div className="pb-24 space-y-6 pt-6 px-4 max-w-md mx-auto">
       {/* Next Trip Countdown */}
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="relative rounded-[2rem] overflow-hidden shadow-lg group min-h-[280px] flex flex-col justify-end"
       >
         {/* Background Image */}
         <div className="absolute inset-0">
-          <img 
-            src={trip.image || "https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?auto=format&fit=crop&q=80&w=800"} 
-            alt={trip.destination} 
+          <img
+            src={trip.image || "https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?auto=format&fit=crop&q=80&w=800"}
+            alt={trip.destination}
             className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/10" />
         </div>
-        
+
         <div className="relative z-10 p-6 text-white">
           <div className="flex items-center justify-between mb-auto pb-8">
             <div className="flex items-center gap-2 bg-black/20 backdrop-blur-md px-3 py-1.5 rounded-full">
               <Plane size={16} className="text-pink-300" />
               <span className="text-xs font-bold uppercase tracking-wider text-pink-100">Chuyến đi sắp tới</span>
             </div>
-            <button 
+            <button
               onClick={openEditTripModal}
               className="p-2 bg-black/20 backdrop-blur-md rounded-full hover:bg-white/20 transition-colors"
             >
               <Edit2 size={16} />
             </button>
           </div>
-          
+
           <h2 className="text-4xl font-bold font-serif mb-2 leading-tight text-white drop-shadow-md">{trip.destination}</h2>
-          
+
           <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-gray-200 mb-4 opacity-90">
             <div className="flex items-center gap-1">
               <Calendar size={12} />
@@ -236,19 +229,19 @@ export function TravelTab() {
               </>
             )}
           </div>
-          
-          <div className="flex gap-3">
-            <div className="bg-black/30 backdrop-blur-md rounded-2xl p-2 flex-1 text-center border border-white/10">
-              <span className="block text-xl font-bold text-pink-300">{countdown.days}</span>
-              <span className="text-[10px] uppercase tracking-wider opacity-80">Ngày</span>
+
+          <div className="flex gap-2">
+            <div className="bg-black/30 backdrop-blur-md rounded-xl p-1.5 flex-1 text-center border border-white/10">
+              <span className="block text-lg font-bold text-pink-300">{countdown.days}</span>
+              <span className="text-[9px] uppercase tracking-wider opacity-80">Ngày</span>
             </div>
-            <div className="bg-black/30 backdrop-blur-md rounded-2xl p-2 flex-1 text-center border border-white/10">
-              <span className="block text-xl font-bold text-pink-300">{countdown.hours}</span>
-              <span className="text-[10px] uppercase tracking-wider opacity-80">Giờ</span>
+            <div className="bg-black/30 backdrop-blur-md rounded-xl p-1.5 flex-1 text-center border border-white/10">
+              <span className="block text-lg font-bold text-pink-300">{countdown.hours}</span>
+              <span className="text-[9px] uppercase tracking-wider opacity-80">Giờ</span>
             </div>
-            <div className="bg-black/30 backdrop-blur-md rounded-2xl p-2 flex-1 text-center border border-white/10">
-              <span className="block text-xl font-bold text-pink-300">{countdown.minutes}</span>
-              <span className="text-[10px] uppercase tracking-wider opacity-80">Phút</span>
+            <div className="bg-black/30 backdrop-blur-md rounded-xl p-1.5 flex-1 text-center border border-white/10">
+              <span className="block text-lg font-bold text-pink-300">{countdown.minutes}</span>
+              <span className="text-[9px] uppercase tracking-wider opacity-80">Phút</span>
             </div>
           </div>
         </div>
@@ -256,7 +249,7 @@ export function TravelTab() {
 
       {/* Planning Tools */}
       <div className="grid grid-cols-3 gap-3">
-        <motion.button 
+        <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={() => setView('packing')}
@@ -268,7 +261,7 @@ export function TravelTab() {
           <span className="font-bold text-gray-700 text-xs">Hành lý</span>
         </motion.button>
 
-        <motion.button 
+        <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={() => setView('itinerary')}
@@ -280,7 +273,7 @@ export function TravelTab() {
           <span className="font-bold text-gray-700 text-xs">Lịch trình</span>
         </motion.button>
 
-        <motion.button 
+        <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={() => setView('diary')}
@@ -294,7 +287,7 @@ export function TravelTab() {
       </div>
 
       {/* Past Trips */}
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
@@ -314,7 +307,7 @@ export function TravelTab() {
             </div>
           )}
           {pastTrips.map((pastTrip) => (
-            <div 
+            <div
               key={pastTrip.id}
               onClick={() => openPastTrip(pastTrip)}
               className="bg-white/50 p-4 rounded-2xl border border-white/60 cursor-pointer hover:bg-white/80 transition-colors flex items-center justify-between group"
@@ -330,12 +323,12 @@ export function TravelTab() {
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-amber-100 text-amber-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="w-8 h-8 bg-amber-100 text-amber-500 rounded-full flex items-center justify-center opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                   <Book size={16} />
                 </div>
-                <button 
+                <button
                   onClick={(e) => deletePastTrip(e, pastTrip.id)}
-                  className="w-8 h-8 bg-red-100 text-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-200"
+                  className="w-8 h-8 bg-red-100 text-red-500 rounded-full flex items-center justify-center opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity hover:bg-red-200"
                 >
                   <Trash2 size={16} />
                 </button>
@@ -355,7 +348,7 @@ export function TravelTab() {
           {/* Image Upload */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Ảnh mục tiêu</label>
-            <div 
+            <div
               className="w-full h-32 rounded-xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 transition-colors relative overflow-hidden"
               onClick={() => fileInputRef.current?.click()}
             >
@@ -367,12 +360,12 @@ export function TravelTab() {
                   <span className="text-sm text-gray-500 font-medium">Chọn ảnh nền</span>
                 </>
               )}
-              <input 
-                type="file" 
-                ref={fileInputRef} 
-                onChange={handleImageUpload} 
-                accept="image/*" 
-                className="hidden" 
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleImageUpload}
+                accept="image/*"
+                className="hidden"
               />
             </div>
           </div>

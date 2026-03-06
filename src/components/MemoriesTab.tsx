@@ -7,6 +7,9 @@ import { CoupleProfile } from "../types";
 import { ImageCropper } from "./ui/ImageCropper";
 import * as htmlToImage from "html-to-image";
 import jsPDF from "jspdf";
+import { useFirebaseSync } from "../hooks/useFirebaseSync";
+import { ref, uploadString, getDownloadURL } from "firebase/storage";
+import { storage } from "../lib/firebase";
 
 const iconMap: Record<string, React.ElementType> = {
   Heart,
@@ -57,44 +60,29 @@ interface MemoriesTabProps {
 }
 
 export function MemoriesTab({ profile, onOpenSettings }: MemoriesTabProps) {
-  const [milestones, setMilestones] = useState<Milestone[]>(initialMilestones);
-  const [photos, setPhotos] = useState<string[]>([]);
+  const [milestones, setMilestones] = useFirebaseSync<Milestone[]>('couple_milestones', initialMilestones);
+  const [photos, setPhotos] = useFirebaseSync<string[]>('couple_photos', initialPhotos);
+  const [isUploading, setIsUploading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [newMilestone, setNewMilestone] = useState({ 
-    id: 0, 
-    date: new Date().toISOString().split('T')[0], 
+  const [newMilestone, setNewMilestone] = useState({
+    id: 0,
+    date: new Date().toISOString().split('T')[0],
     title: "",
     iconName: "Heart",
     color: "bg-rose-100 text-rose-500"
   });
   const [editingMilestoneId, setEditingMilestoneId] = useState<number | null>(null);
-  
+
   const [pendingPhotos, setPendingPhotos] = useState<string[]>([]);
   const [currentCropIndex, setCurrentCropIndex] = useState(0);
   const [isCropping, setIsCropping] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [exportFormat, setExportFormat] = useState('auto');
-  
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const albumRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const savedPhotos = localStorage.getItem('couple_photos');
-    if (savedPhotos) {
-      setPhotos(JSON.parse(savedPhotos));
-    } else {
-      setPhotos(initialPhotos);
-    }
-
-    const savedMilestones = localStorage.getItem('couple_milestones');
-    if (savedMilestones) {
-      setMilestones(JSON.parse(savedMilestones));
-    }
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem('couple_milestones', JSON.stringify(milestones));
-  }, [milestones]);
+  // LocalStorage generic useEffects removed in favor of useFirebaseSync
 
   const handleAddMilestone = (e: FormEvent) => {
     e.preventDefault();
@@ -104,8 +92,8 @@ export function MemoriesTab({ profile, onOpenSettings }: MemoriesTabProps) {
     const formattedDate = `${day}/${month}/${year}`;
 
     if (editingMilestoneId) {
-      setMilestones(prev => prev.map(m => 
-        m.id === editingMilestoneId 
+      setMilestones(prev => prev.map(m =>
+        m.id === editingMilestoneId
           ? { ...m, date: formattedDate, title: newMilestone.title, iconName: newMilestone.iconName, color: newMilestone.color }
           : m
       ));
@@ -121,7 +109,7 @@ export function MemoriesTab({ profile, onOpenSettings }: MemoriesTabProps) {
         }
       ]);
     }
-    
+
     setNewMilestone({ id: 0, date: new Date().toISOString().split('T')[0], title: "", iconName: "Heart", color: "bg-rose-100 text-rose-500" });
     setEditingMilestoneId(null);
     setIsModalOpen(false);
@@ -147,7 +135,6 @@ export function MemoriesTab({ profile, onOpenSettings }: MemoriesTabProps) {
   const deletePhoto = (index: number) => {
     const newPhotos = photos.filter((_, i) => i !== index);
     setPhotos(newPhotos);
-    localStorage.setItem('couple_photos', JSON.stringify(newPhotos));
   };
 
   const handlePhotoUpload = (e: ChangeEvent<HTMLInputElement>) => {
@@ -172,15 +159,24 @@ export function MemoriesTab({ profile, onOpenSettings }: MemoriesTabProps) {
     }
   };
 
-  const handleCropComplete = (croppedImage: string) => {
-    const newPhotos = [croppedImage, ...photos];
-    setPhotos(newPhotos);
-    localStorage.setItem('couple_photos', JSON.stringify(newPhotos));
+  const handleCropComplete = async (croppedImage: string) => {
+    setIsCropping(false);
+    setIsUploading(true);
+
+    try {
+      // Bypassing Firebase Storage due to billing limitations.
+      // Saving directly as base64 string to Firestore via the sync hook.
+      setPhotos(prev => [croppedImage, ...prev]);
+    } catch (e) {
+      console.error("Lỗi khi tải ảnh:", e);
+    }
+
+    setIsUploading(false);
 
     if (currentCropIndex < pendingPhotos.length - 1) {
       setCurrentCropIndex(prev => prev + 1);
+      setTimeout(() => setIsCropping(true), 200);
     } else {
-      setIsCropping(false);
       setPendingPhotos([]);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
@@ -200,13 +196,13 @@ export function MemoriesTab({ profile, onOpenSettings }: MemoriesTabProps) {
     if (!albumRef.current) return;
     try {
       const imgData = await htmlToImage.toJpeg(albumRef.current, { quality: 1.0, pixelRatio: 2 });
-      
+
       let pdf;
       if (exportFormat === 'auto') {
         const img = new Image();
         img.src = imgData;
         await new Promise((resolve) => { img.onload = resolve; });
-        
+
         pdf = new jsPDF({
           orientation: img.width > img.height ? 'landscape' : 'portrait',
           unit: 'px',
@@ -219,27 +215,27 @@ export function MemoriesTab({ profile, onOpenSettings }: MemoriesTabProps) {
           unit: 'mm',
           format: exportFormat
         });
-        
+
         const pdfWidth = pdf.internal.pageSize.getWidth();
         const pdfHeight = pdf.internal.pageSize.getHeight();
-        
+
         const imgProps = pdf.getImageProperties(imgData);
         const imgRatio = imgProps.width / imgProps.height;
-        
+
         let finalWidth = pdfWidth;
         let finalHeight = pdfWidth / imgRatio;
-        
+
         if (finalHeight > pdfHeight) {
           finalHeight = pdfHeight;
           finalWidth = pdfHeight * imgRatio;
         }
-        
+
         const x = (pdfWidth - finalWidth) / 2;
         const y = (pdfHeight - finalHeight) / 2;
-        
+
         pdf.addImage(imgData, 'JPEG', x, y, finalWidth, finalHeight);
       }
-      
+
       pdf.save(`Album_Ky_Niem_${exportFormat}.pdf`);
       setIsExportModalOpen(false);
     } catch (error) {
@@ -250,10 +246,10 @@ export function MemoriesTab({ profile, onOpenSettings }: MemoriesTabProps) {
   return (
     <div className="pb-24 space-y-6">
       <Header profile={profile} onOpenSettings={onOpenSettings} />
-      
+
       <div className="px-4 space-y-6 max-w-md mx-auto">
         {/* Milestones */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="bg-white/70 backdrop-blur-md rounded-[2rem] p-6 shadow-sm border-2 border-white"
@@ -265,7 +261,7 @@ export function MemoriesTab({ profile, onOpenSettings }: MemoriesTabProps) {
               </div>
               <h3 className="font-bold text-xl text-gray-800 font-handwriting">Cột mốc tình yêu</h3>
             </div>
-            <button 
+            <button
               onClick={() => {
                 setNewMilestone({ id: 0, date: new Date().toISOString().split('T')[0], title: "", iconName: "Heart", color: "bg-rose-100 text-rose-500" });
                 setEditingMilestoneId(null);
@@ -298,7 +294,7 @@ export function MemoriesTab({ profile, onOpenSettings }: MemoriesTabProps) {
                         <span className="text-xs text-gray-500 font-medium">{milestone.date}</span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                       <button onClick={() => openEditMilestone(milestone)} className="p-1.5 text-blue-400 hover:bg-blue-50 rounded-lg transition-colors">
                         <Edit2 size={14} />
                       </button>
@@ -314,7 +310,7 @@ export function MemoriesTab({ profile, onOpenSettings }: MemoriesTabProps) {
         </motion.div>
 
         {/* Photo Gallery */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
@@ -328,27 +324,27 @@ export function MemoriesTab({ profile, onOpenSettings }: MemoriesTabProps) {
               <h3 className="font-bold text-xl text-gray-800 font-handwriting">Khoảnh khắc ngọt ngào</h3>
             </div>
             <div className="flex items-center gap-2">
-              <button 
+              <button
                 onClick={() => setIsExportModalOpen(true)}
                 className="p-2 bg-blue-100 text-blue-500 rounded-full hover:bg-blue-200 transition-colors"
                 title="Xuất Album PDF"
               >
                 <Download size={18} />
               </button>
-              <button 
+              <button
                 onClick={() => fileInputRef.current?.click()}
                 className="p-2 bg-rose-100 text-rose-500 rounded-full hover:bg-rose-200 transition-colors"
               >
                 <Upload size={18} />
               </button>
             </div>
-            <input 
-              type="file" 
-              ref={fileInputRef} 
-              onChange={handlePhotoUpload} 
-              accept="image/*" 
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handlePhotoUpload}
+              accept="image/*"
               multiple
-              className="hidden" 
+              className="hidden"
             />
           </div>
 
@@ -359,19 +355,19 @@ export function MemoriesTab({ profile, onOpenSettings }: MemoriesTabProps) {
               </div>
             )}
             {photos.map((photo, i) => (
-              <div 
-                key={i} 
+              <div
+                key={i}
                 className={`group relative bg-white p-2 pb-8 rounded-sm shadow-md border border-gray-100 hover:scale-105 hover:shadow-xl hover:z-10 transition-all duration-300 ${i % 3 === 2 ? 'col-span-2 aspect-[3/2] rotate-1' : 'aspect-square -rotate-2'}`}
               >
-                <img 
-                  src={photo} 
-                  alt="Love memory" 
+                <img
+                  src={photo}
+                  alt="Love memory"
                   className="w-full h-full object-cover rounded-sm"
                   referrerPolicy="no-referrer"
                 />
-                <button 
+                <button
                   onClick={(e) => { e.stopPropagation(); deletePhoto(i); }}
-                  className="absolute top-3 right-3 p-1.5 bg-red-500/80 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                  className="absolute top-3 right-3 p-1.5 bg-red-500/80 text-white rounded-full opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity hover:bg-red-600"
                 >
                   <Trash2 size={14} />
                 </button>
@@ -407,7 +403,7 @@ export function MemoriesTab({ profile, onOpenSettings }: MemoriesTabProps) {
               className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-rose-300"
             />
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Biểu tượng</label>
             <div className="flex flex-wrap gap-2">
@@ -457,7 +453,7 @@ export function MemoriesTab({ profile, onOpenSettings }: MemoriesTabProps) {
       >
         <div className="space-y-4">
           <p className="text-sm text-gray-600">Chọn định dạng trang để xuất album kỷ niệm của bạn:</p>
-          
+
           <div className="space-y-2">
             {[
               { id: 'auto', name: 'Tự động', desc: 'Vừa khít với kích thước album hiện tại' },
@@ -468,11 +464,10 @@ export function MemoriesTab({ profile, onOpenSettings }: MemoriesTabProps) {
               <button
                 key={format.id}
                 onClick={() => setExportFormat(format.id)}
-                className={`w-full flex items-center justify-between p-3 rounded-xl border-2 transition-all text-left ${
-                  exportFormat === format.id 
-                    ? 'border-blue-400 bg-blue-50' 
-                    : 'border-gray-100 hover:border-blue-200 hover:bg-gray-50'
-                }`}
+                className={`w-full flex items-center justify-between p-3 rounded-xl border-2 transition-all text-left ${exportFormat === format.id
+                  ? 'border-blue-400 bg-blue-50'
+                  : 'border-gray-100 hover:border-blue-200 hover:bg-gray-50'
+                  }`}
               >
                 <div>
                   <div className={`font-bold ${exportFormat === format.id ? 'text-blue-600' : 'text-gray-800'}`}>
@@ -480,9 +475,8 @@ export function MemoriesTab({ profile, onOpenSettings }: MemoriesTabProps) {
                   </div>
                   <div className="text-xs text-gray-500 mt-0.5">{format.desc}</div>
                 </div>
-                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                  exportFormat === format.id ? 'border-blue-500' : 'border-gray-300'
-                }`}>
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${exportFormat === format.id ? 'border-blue-500' : 'border-gray-300'
+                  }`}>
                   {exportFormat === format.id && <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />}
                 </div>
               </button>

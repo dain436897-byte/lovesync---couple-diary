@@ -4,6 +4,7 @@ import { Wallet, Plus, Target, Trash2 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { useState, FormEvent, useEffect } from "react";
 import { Modal } from "./ui/Modal";
+import { useFirebaseSync } from "../hooks/useFirebaseSync";
 
 const initialExpenseData = [
   { name: 'T1', amount: 3500000 },
@@ -15,41 +16,25 @@ const initialExpenseData = [
 ];
 
 export function UtilitiesTab() {
-  const [expenses, setExpenses] = useState(initialExpenseData);
+  const [expenses, setExpenses] = useFirebaseSync('monthly_expenses', initialExpenseData);
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   const [newExpense, setNewExpense] = useState({ month: "", amount: "" });
-  const [budget, setBudget] = useState(20000000);
+  const [budget, setBudget] = useFirebaseSync('monthly_budget', 20000000);
   const [isBudgetModalOpen, setIsBudgetModalOpen] = useState(false);
   const [newBudget, setNewBudget] = useState("");
-
-  useEffect(() => {
-    const savedBudget = localStorage.getItem('monthly_budget');
-    if (savedBudget) {
-      setBudget(Number(savedBudget));
-    }
-    const savedExpenses = localStorage.getItem('monthly_expenses');
-    if (savedExpenses) {
-      setExpenses(JSON.parse(savedExpenses));
-    }
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem('monthly_expenses', JSON.stringify(expenses));
-  }, [expenses]);
 
   const handleSaveBudget = (e: FormEvent) => {
     e.preventDefault();
     if (!newBudget) return;
     const budgetValue = Number(newBudget);
     setBudget(budgetValue);
-    localStorage.setItem('monthly_budget', budgetValue.toString());
     setIsBudgetModalOpen(false);
     setNewBudget("");
   };
 
   const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
   const budgetPercentage = Math.min((totalExpenses / budget) * 100, 100);
-  
+
   let progressColor = "bg-emerald-400";
   if (budgetPercentage > 100 || totalExpenses > budget) {
     progressColor = "bg-rose-500";
@@ -60,7 +45,7 @@ export function UtilitiesTab() {
   const handleAddExpense = (e: FormEvent) => {
     e.preventDefault();
     if (!newExpense.month || !newExpense.amount) return;
-    
+
     setExpenses(prev => [...prev, { name: newExpense.month, amount: Number(newExpense.amount) }]);
     setNewExpense({ month: "", amount: "" });
     setIsExpenseModalOpen(false);
@@ -76,7 +61,7 @@ export function UtilitiesTab() {
       <PiggyBank />
 
       {/* Expense Chart */}
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
@@ -90,14 +75,14 @@ export function UtilitiesTab() {
             <h3 className="font-bold text-xl text-gray-800 font-handwriting">Chi tiêu chung</h3>
           </div>
           <div className="flex gap-2">
-            <button 
+            <button
               onClick={() => setIsBudgetModalOpen(true)}
               className="p-2 bg-emerald-100 text-emerald-500 rounded-full hover:bg-emerald-200 transition-colors"
               title="Cài đặt ngân sách"
             >
               <Target size={18} />
             </button>
-            <button 
+            <button
               onClick={() => setIsExpenseModalOpen(true)}
               className="p-2 bg-pink-100 text-pink-500 rounded-full hover:bg-pink-200 transition-colors"
             >
@@ -122,7 +107,7 @@ export function UtilitiesTab() {
             </div>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
-            <div 
+            <div
               className={`h-2.5 rounded-full transition-all duration-500 ${progressColor}`}
               style={{ width: `${budgetPercentage}%` }}
             />
@@ -137,10 +122,10 @@ export function UtilitiesTab() {
             <BarChart data={expenses}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
               <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#9ca3af' }} dy={10} />
-              <YAxis 
-                axisLine={false} 
-                tickLine={false} 
-                tick={{ fontSize: 10, fill: '#9ca3af' }} 
+              <YAxis
+                axisLine={false}
+                tickLine={false}
+                tick={{ fontSize: 10, fill: '#9ca3af' }}
                 tickFormatter={(value) => `${value / 1000000}M`}
               />
               <Tooltip cursor={{ fill: 'transparent' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
@@ -163,9 +148,9 @@ export function UtilitiesTab() {
                 </div>
                 <span className="font-bold text-gray-700">{expense.amount.toLocaleString('vi-VN')} đ</span>
               </div>
-              <button 
+              <button
                 onClick={() => handleDeleteExpense(index)}
-                className="p-1.5 text-red-400 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                className="p-1.5 text-red-400 hover:bg-red-50 rounded-lg transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100"
               >
                 <Trash2 size={16} />
               </button>

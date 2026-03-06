@@ -14,7 +14,7 @@ export function Login({ onComplete }: LoginProps) {
   const [partner1, setPartner1] = useState({ name: "", avatar: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=150&h=150&fit=crop&crop=faces" });
   const [partner2, setPartner2] = useState({ name: "", avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&h=150&fit=crop&crop=faces" });
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
-  
+
   const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
   const [currentPartnerCrop, setCurrentPartnerCrop] = useState<1 | 2 | null>(null);
 
@@ -52,13 +52,13 @@ export function Login({ onComplete }: LoginProps) {
 
   return (
     <div className="min-h-screen bg-pink-50 flex items-center justify-center p-6">
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         className="w-full max-w-md bg-white rounded-[3rem] p-8 shadow-2xl border-4 border-pink-100 relative overflow-hidden"
       >
         <div className="absolute top-0 left-0 w-full h-2 bg-pink-200">
-          <motion.div 
+          <motion.div
             className="h-full bg-pink-500"
             initial={{ width: "0%" }}
             animate={{ width: `${(step / 3) * 100}%` }}
@@ -80,19 +80,19 @@ export function Login({ onComplete }: LoginProps) {
               <div className="flex items-center gap-4">
                 <div className="relative group cursor-pointer hover:scale-105 transition-transform" onClick={() => fileInput1Ref.current?.click()}>
                   <img src={partner1.avatar} className="w-20 h-20 rounded-full border-4 border-pink-100 object-cover shadow-md" />
-                  <div className="absolute inset-0 bg-black/30 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="absolute inset-0 bg-black/30 rounded-full flex items-center justify-center opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                     <Camera size={24} className="text-white" />
                   </div>
-                  <input 
-                    type="file" 
-                    ref={fileInput1Ref} 
-                    onChange={(e) => handleFileUpload(e, 1)} 
-                    accept="image/*" 
-                    className="hidden" 
+                  <input
+                    type="file"
+                    ref={fileInput1Ref}
+                    onChange={(e) => handleFileUpload(e, 1)}
+                    accept="image/*"
+                    className="hidden"
                   />
                 </div>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={partner1.name}
                   onChange={(e) => setPartner1({ ...partner1, name: e.target.value })}
                   placeholder="Nhập tên của bạn..."
@@ -100,7 +100,7 @@ export function Login({ onComplete }: LoginProps) {
                 />
               </div>
             </div>
-            <motion.button 
+            <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               disabled={!partner1.name}
@@ -119,19 +119,19 @@ export function Login({ onComplete }: LoginProps) {
               <div className="flex items-center gap-4">
                 <div className="relative group cursor-pointer hover:scale-105 transition-transform" onClick={() => fileInput2Ref.current?.click()}>
                   <img src={partner2.avatar} className="w-20 h-20 rounded-full border-4 border-pink-100 object-cover shadow-md" />
-                  <div className="absolute inset-0 bg-black/30 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="absolute inset-0 bg-black/30 rounded-full flex items-center justify-center opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                     <Camera size={24} className="text-white" />
                   </div>
-                  <input 
-                    type="file" 
-                    ref={fileInput2Ref} 
-                    onChange={(e) => handleFileUpload(e, 2)} 
-                    accept="image/*" 
-                    className="hidden" 
+                  <input
+                    type="file"
+                    ref={fileInput2Ref}
+                    onChange={(e) => handleFileUpload(e, 2)}
+                    accept="image/*"
+                    className="hidden"
                   />
                 </div>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={partner2.name}
                   onChange={(e) => setPartner2({ ...partner2, name: e.target.value })}
                   placeholder="Nhập tên người ấy..."
@@ -139,7 +139,7 @@ export function Login({ onComplete }: LoginProps) {
                 />
               </div>
             </div>
-            <motion.button 
+            <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               disabled={!partner2.name}
@@ -156,28 +156,28 @@ export function Login({ onComplete }: LoginProps) {
             <div className="space-y-4">
               <label className="block text-sm font-bold text-gray-700 uppercase tracking-wider">Ngày bắt đầu yêu</label>
               <div className="relative">
-                <input 
-                  type="date" 
+                <input
+                  type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
                   className="w-full px-4 py-4 rounded-2xl border-2 border-pink-50 focus:border-pink-300 outline-none transition-all font-medium bg-pink-50/20 cursor-pointer"
                 />
               </div>
               {startDate && (
-                <motion.p 
+                <motion.p
                   initial={{ opacity: 0, y: 5 }}
                   animate={{ opacity: 1, y: 0 }}
                   className="text-sm text-pink-500 font-bold bg-pink-50 p-3 rounded-xl text-center shadow-sm border border-pink-100"
                 >
-                  ❤️ {new Date(startDate).toLocaleDateString('vi-VN', { 
-                    day: 'numeric', 
-                    month: 'long', 
-                    year: 'numeric' 
+                  ❤️ {new Date(startDate).toLocaleDateString('vi-VN', {
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric'
                   })}
                 </motion.p>
               )}
             </div>
-            <motion.button 
+            <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               onClick={handleNext}

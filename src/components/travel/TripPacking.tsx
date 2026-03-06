@@ -54,7 +54,7 @@ export function TripPacking({ items, tripImage, tripDestination, onUpdate, onBac
   const [selectedColor, setSelectedColor] = useState('orange');
 
   const toggleItem = (id: number) => {
-    onUpdate(items.map(item => 
+    onUpdate(items.map(item =>
       item.id === id ? { ...item, checked: !item.checked } : item
     ));
   };
@@ -80,9 +80,9 @@ export function TripPacking({ items, tripImage, tripDestination, onUpdate, onBac
   };
 
   const handleQuickAdd = (item: typeof QUICK_ITEMS[0]) => {
-    onUpdate([...items, { 
-      id: Date.now(), 
-      text: item.text, 
+    onUpdate([...items, {
+      id: Date.now(),
+      text: item.text,
       checked: false,
       icon: item.icon,
       color: item.color
@@ -95,21 +95,21 @@ export function TripPacking({ items, tripImage, tripDestination, onUpdate, onBac
     if (!newItem) return;
 
     if (editingItem) {
-      onUpdate(items.map(item => 
-        item.id === editingItem.id 
-          ? { ...item, text: newItem, icon: selectedIcon, color: selectedColor } 
+      onUpdate(items.map(item =>
+        item.id === editingItem.id
+          ? { ...item, text: newItem, icon: selectedIcon, color: selectedColor }
           : item
       ));
     } else {
-      onUpdate([...items, { 
-        id: Date.now(), 
-        text: newItem, 
+      onUpdate([...items, {
+        id: Date.now(),
+        text: newItem,
         checked: false,
         icon: selectedIcon,
         color: selectedColor
       }]);
     }
-    
+
     setNewItem("");
     setIsModalOpen(false);
     setEditingItem(null);
@@ -152,7 +152,7 @@ export function TripPacking({ items, tripImage, tripDestination, onUpdate, onBac
           <span className="text-sm text-gray-500 font-bold">
             Đã chuẩn bị: {items.filter(i => i.checked).length}/{items.length}
           </span>
-          <button 
+          <button
             onClick={openAddModal}
             className="p-2 bg-orange-100 text-orange-500 rounded-full hover:bg-orange-200 transition-colors shadow-sm"
           >
@@ -169,32 +169,32 @@ export function TripPacking({ items, tripImage, tripDestination, onUpdate, onBac
           {items.map((item) => {
             const colorClasses = getColorClasses(item.color);
             return (
-              <motion.div 
+              <motion.div
                 layout
-                key={item.id} 
+                key={item.id}
                 className={`flex items-center gap-3 group p-3 bg-white/50 rounded-xl border border-white/60 hover:bg-white/80 transition-all ${item.checked ? 'opacity-60' : ''}`}
               >
-                <div 
+                <div
                   onClick={() => toggleItem(item.id)}
                   className={`w-10 h-10 rounded-lg flex items-center justify-center cursor-pointer ${colorClasses.bg} ${colorClasses.text} ${colorClasses.border} border shadow-sm transition-transform active:scale-90`}
                 >
                   {getIconComponent(item.icon)}
                 </div>
-                <span 
+                <span
                   onClick={() => toggleItem(item.id)}
                   className={`text-sm font-semibold flex-1 cursor-pointer ${item.checked ? 'text-gray-400 line-through decoration-2 decoration-gray-300' : 'text-gray-700'}`}
                 >
                   {item.text}
                 </span>
-                
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button 
+
+                <div className="flex items-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                  <button
                     onClick={() => openEditModal(item)}
                     className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-full transition-colors"
                   >
                     <Edit2 size={14} />
                   </button>
-                  <button 
+                  <button
                     onClick={() => deleteItem(item.id)}
                     className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-red-50 rounded-full transition-colors"
                   >
@@ -202,7 +202,7 @@ export function TripPacking({ items, tripImage, tripDestination, onUpdate, onBac
                   </button>
                 </div>
 
-                <div 
+                <div
                   onClick={() => toggleItem(item.id)}
                   className={`transition-colors cursor-pointer ${item.checked ? 'text-green-500' : 'text-gray-300 group-hover:text-orange-300'}`}
                 >
@@ -261,11 +261,10 @@ export function TripPacking({ items, tripImage, tripDestination, onUpdate, onBac
                       key={item.id}
                       type="button"
                       onClick={() => setSelectedIcon(item.id)}
-                      className={`p-3 rounded-xl flex items-center justify-center border-2 transition-all ${
-                        selectedIcon === item.id 
-                          ? 'border-orange-500 bg-orange-50 text-orange-500' 
+                      className={`p-3 rounded-xl flex items-center justify-center border-2 transition-all ${selectedIcon === item.id
+                          ? 'border-orange-500 bg-orange-50 text-orange-500'
                           : 'border-gray-50 bg-gray-50 text-gray-400 hover:bg-gray-100'
-                      }`}
+                        }`}
                     >
                       <IconComp size={20} />
                     </button>
@@ -282,11 +281,10 @@ export function TripPacking({ items, tripImage, tripDestination, onUpdate, onBac
                     key={color.id}
                     type="button"
                     onClick={() => setSelectedColor(color.id)}
-                    className={`w-8 h-8 rounded-full border-2 transition-all ${
-                      selectedColor === color.id 
-                        ? 'border-gray-800 scale-110' 
+                    className={`w-8 h-8 rounded-full border-2 transition-all ${selectedColor === color.id
+                        ? 'border-gray-800 scale-110'
                         : 'border-transparent'
-                    } ${color.bg}`}
+                      } ${color.bg}`}
                   />
                 ))}
               </div>

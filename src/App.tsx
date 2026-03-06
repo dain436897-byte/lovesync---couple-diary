@@ -14,27 +14,19 @@ import { SettingsModal } from './components/SettingsModal';
 import { AnimatePresence, motion } from 'motion/react';
 import { CoupleProfile } from './types';
 import { Volume2, VolumeX } from 'lucide-react';
+import { useFirebaseSync } from './hooks/useFirebaseSync';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'memories' | 'travel' | 'utilities'>('memories');
-  const [profile, setProfile] = useState<CoupleProfile | null>(() => {
-    const saved = localStorage.getItem('couple_profile');
-    return saved ? JSON.parse(saved) : null;
-  });
+  const [profile, setProfile] = useFirebaseSync<CoupleProfile | null>('couple_profile', null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   const bgmRef = useRef<HTMLAudioElement>(null);
 
   useEffect(() => {
-    if (profile) {
-      localStorage.setItem('couple_profile', JSON.stringify(profile));
-    }
-  }, [profile]);
-
-  useEffect(() => {
     const handleClick = () => {
       if (!isMuted) {
-        const clickSound = new Audio('https://actions.google.com/sounds/v1/cartoon/pop.ogg');
+        const clickSound = new Audio('https://assets.mixkit.co/sfx/preview/mixkit-bubble-pop-up-2355.mp3');
         clickSound.volume = 0.3;
         clickSound.play().catch(() => { });
       }
@@ -123,7 +115,7 @@ export default function App() {
         {/* Background Music - A cute royalty-free track */}
         <audio
           ref={bgmRef}
-          src="https://assets.mixkit.co/music/preview/mixkit-sun-and-his-daughter-580.mp3"
+          src="https://assets.mixkit.co/music/preview/mixkit-beautiful-dream-493.mp3"
           loop
         />
       </div>

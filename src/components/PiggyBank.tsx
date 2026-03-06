@@ -21,7 +21,7 @@ export function PiggyBank() {
 
   return (
     <>
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         onClick={() => setIsModalOpen(true)}
@@ -30,7 +30,7 @@ export function PiggyBank() {
         <div className="w-24 h-24 flex-shrink-0 bg-pink-50 rounded-full flex items-center justify-center text-5xl shadow-inner border-4 border-white group-hover:scale-110 transition-transform duration-300">
           🐷
         </div>
-        
+
         <div className="flex-1 space-y-2">
           <div className="flex justify-between items-end">
             <h3 className="font-bold text-xl text-gray-800 font-handwriting">Heo đất tiết kiệm</h3>
@@ -38,9 +38,9 @@ export function PiggyBank() {
               <span className="text-pink-600 text-lg font-bold">{saved.toLocaleString('vi-VN')} VNĐ</span> / {goal.toLocaleString('vi-VN')} VNĐ
             </div>
           </div>
-          
+
           <div className="h-5 bg-gray-100 rounded-full overflow-hidden shadow-inner border border-gray-200">
-            <motion.div 
+            <motion.div
               initial={{ width: 0 }}
               animate={{ width: `${progress}%` }}
               transition={{ duration: 1.5, ease: "easeOut" }}
@@ -50,10 +50,10 @@ export function PiggyBank() {
               <div className="absolute top-0 left-0 w-full h-full bg-white/20 animate-pulse" />
             </motion.div>
           </div>
-          
+
           <div className="flex justify-between items-center">
             <div className="text-sm text-gray-500 font-handwriting">Đã tiết kiệm được một khoản kha khá rồi nè! ❤️</div>
-            <div className="bg-pink-100 p-1.5 rounded-full text-pink-500 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="bg-pink-100 p-1.5 rounded-full text-pink-500 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
               <Plus size={16} />
             </div>
           </div>
