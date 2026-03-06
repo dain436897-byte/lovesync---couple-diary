@@ -1,16 +1,36 @@
 <!doctype html>
 <html lang="vi">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>LoveSync 💕 Nhật ký đôi lứa</title>
-    <meta name="description" content="Không gian riêng tư dành cho hai bạn – lưu giữ kỷ niệm, kế hoạch du lịch và nhiều hơn nữa." />
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💕</text></svg>" />
-    <script type="module" crossorigin src="/lovesync---couple-diary/assets/index--Cr0eUyV.js"></script>
-    <link rel="stylesheet" crossorigin href="/lovesync---couple-diary/assets/index-OSv1dghQ.css">
-  </head>
-  <body>
-    <div id="root"></div>
-  </body>
-</html>
 
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LoveSync 💕 Nhật ký đôi lứa</title>
+  <meta name="description"
+    content="Không gian riêng tư dành cho hai bạn – lưu giữ kỷ niệm, kế hoạch du lịch và nhiều hơn nữa." />
+  <link rel="icon"
+    href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💕</text></svg>" />
+  <script type="module" crossorigin src="/lovesync---couple-diary/assets/index-BTOe8j0q.js"></script>
+  <link rel="stylesheet" crossorigin href="/lovesync---couple-diary/assets/index-OSv1dghQ.css">
+</head>
+
+<body>
+  <div id="root"></div>
+  <script>
+    window.errorLogs = [];
+    const originalError = console.error;
+    console.error = function (...args) {
+      window.errorLogs.push(args.join(' '));
+      let div = document.getElementById('debug-error-logger');
+      if (!div) {
+        div = document.createElement('div');
+        div.id = 'debug-error-logger';
+        div.style.cssText = 'position:fixed;bottom:10px;left:10px;background:rgba(255,0,0,0.8);color:white;padding:10px;z-index:9999;max-width:300px;font-size:12px;border-radius:4px;word-wrap:break-word;pointer-events:none;';
+        document.body.appendChild(div);
+      }
+      div.innerText = window.errorLogs.join('\n');
+      originalError.apply(console, args);
+    };
+  </script>
+</body>
+
+</html>
