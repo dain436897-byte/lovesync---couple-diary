@@ -158,11 +158,11 @@ export function MemoriesTab({ profile, onOpenSettings }: MemoriesTabProps) {
       setIsUploading(true);
       try {
         const { compressImage } = await import('../lib/imageUtils');
-        const compressed = await Promise.all(
-          Array.from(files).map(file => compressImage(file as File, 200, 800))
-        );
-        for (const url of compressed) {
-          await addPhoto(url);
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i];
+          const compressedUrl = await compressImage(file as File, 200, 800);
+          const userNote = window.prompt(`Thêm ghi chú cho ảnh ${i + 1}/${files.length} (để trống nếu không cần):`, "");
+          await addPhoto(compressedUrl, userNote || "");
         }
       } catch (e) {
         console.error("Lỗi khi nén ảnh:", e);
@@ -186,7 +186,7 @@ export function MemoriesTab({ profile, onOpenSettings }: MemoriesTabProps) {
     reader.readAsDataURL(files[0]);
   };
 
-  const handleCropComplete = async (croppedImage: string) => {
+  const handleCropComplete = async (croppedImage: string, note?: string) => {
     setIsCropping(false);
     setIsUploading(true);
 
@@ -195,15 +195,21 @@ export function MemoriesTab({ profile, onOpenSettings }: MemoriesTabProps) {
       const compressed = await compressImage(croppedImage, 200, 800);
       if (editingPhotoIdForImage) {
         await updatePhotoUrl(editingPhotoIdForImage, compressed);
+        if (note !== undefined) {
+          await updatePhotoNote(editingPhotoIdForImage, note);
+        }
       } else {
-        await addPhoto(compressed);
+        await addPhoto(compressed, note);
       }
     } catch (e) {
       console.error("Lỗi khi nén ảnh:", e);
       if (editingPhotoIdForImage) {
         await updatePhotoUrl(editingPhotoIdForImage, croppedImage);
+        if (note !== undefined) {
+          await updatePhotoNote(editingPhotoIdForImage, note);
+        }
       } else {
-        await addPhoto(croppedImage);
+        await addPhoto(croppedImage, note);
       }
     }
 
@@ -635,6 +641,7 @@ export function MemoriesTab({ profile, onOpenSettings }: MemoriesTabProps) {
           onCropComplete={handleCropComplete}
           onCancel={handleCropCancel}
           aspectRatio={1}
+          initialNote={editingPhotoIdForImage ? (photoItems.find(p => p.id === editingPhotoIdForImage)?.note || '') : ''}
         />
       )}
     </div>

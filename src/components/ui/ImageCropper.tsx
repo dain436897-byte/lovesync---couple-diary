@@ -5,14 +5,16 @@ import { getCroppedImg } from '../../utils/imageCrop';
 
 interface ImageCropperProps {
   imageSrc: string;
-  onCropComplete: (croppedImage: string) => void;
+  onCropComplete: (croppedImage: string, note?: string) => void;
   onCancel: () => void;
   aspectRatio?: number;
+  initialNote?: string;
 }
 
-export function ImageCropper({ imageSrc, onCropComplete, onCancel, aspectRatio = 1 }: ImageCropperProps) {
+export function ImageCropper({ imageSrc, onCropComplete, onCancel, aspectRatio = 1, initialNote = '' }: ImageCropperProps) {
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
+  const [note, setNote] = useState(initialNote);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
 
   const onCropCompleteHandler = useCallback((croppedArea: any, croppedAreaPixels: any) => {
@@ -22,7 +24,7 @@ export function ImageCropper({ imageSrc, onCropComplete, onCancel, aspectRatio =
   const handleSave = async () => {
     try {
       const croppedImage = await getCroppedImg(imageSrc, croppedAreaPixels);
-      onCropComplete(croppedImage);
+      onCropComplete(croppedImage, note);
     } catch (e) {
       console.error(e);
     }
@@ -55,6 +57,18 @@ export function ImageCropper({ imageSrc, onCropComplete, onCancel, aspectRatio =
             className="w-full accent-pink-500"
           />
         </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Ghi chú ảnh</label>
+          <input
+            type="text"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="Viết vài dòng kỷ niệm..."
+            className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-rose-300"
+          />
+        </div>
+
         <div className="flex gap-3">
           <button
             onClick={onCancel}
