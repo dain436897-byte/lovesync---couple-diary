@@ -69,7 +69,7 @@ export function UtilitiesTab() {
       >
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-pink-100 text-pink-500 rounded-2xl shadow-sm">
+            <div className="p-2.5 bg-violet-100 text-violet-500 rounded-2xl shadow-sm">
               <Wallet size={22} strokeWidth={2.5} />
             </div>
             <h3 className="font-bold text-xl text-gray-800 font-handwriting">Chi tiêu chung</h3>
@@ -84,7 +84,7 @@ export function UtilitiesTab() {
             </button>
             <button
               onClick={() => setIsExpenseModalOpen(true)}
-              className="p-2 bg-pink-100 text-pink-500 rounded-full hover:bg-pink-200 transition-colors"
+              className="p-2 bg-violet-100 text-violet-500 rounded-full hover:bg-violet-200 transition-colors"
             >
               <Plus size={18} />
             </button>
@@ -129,7 +129,7 @@ export function UtilitiesTab() {
                 tickFormatter={(value) => `${value / 1000000}M`}
               />
               <Tooltip cursor={{ fill: 'transparent' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
-              <Bar dataKey="amount" fill="#fb7185" radius={[4, 4, 4, 4]} barSize={16} />
+              <Bar dataKey="amount" fill="#8b5cf6" radius={[4, 4, 4, 4]} barSize={16} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -143,7 +143,7 @@ export function UtilitiesTab() {
           {expenses.map((expense, index) => (
             <div key={index} className="flex items-center justify-between bg-white/50 p-3 rounded-xl border border-white/60 group">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-pink-100 text-pink-500 flex items-center justify-center font-bold text-xs">
+                <div className="w-8 h-8 rounded-full bg-violet-100 text-violet-500 flex items-center justify-center font-bold text-xs">
                   {expense.name}
                 </div>
                 <span className="font-bold text-gray-700">{expense.amount.toLocaleString('vi-VN')} đ</span>
@@ -187,7 +187,7 @@ export function UtilitiesTab() {
           </div>
           <button
             type="submit"
-            className="w-full py-3 bg-pink-500 text-white rounded-xl font-bold hover:bg-pink-600 transition-colors"
+            className="w-full py-3 bg-violet-500 text-white rounded-xl font-bold hover:bg-violet-600 transition-colors"
           >
             Lưu lại
           </button>

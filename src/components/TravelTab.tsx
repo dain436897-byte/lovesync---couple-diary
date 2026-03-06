@@ -6,6 +6,7 @@ import { useFirebaseSync } from "../hooks/useFirebaseSync";
 import { TripPacking } from "./travel/TripPacking";
 import { TripItinerary } from "./travel/TripItinerary";
 import { TripDiary } from "./travel/TripDiary";
+import { TripSummary } from "./travel/TripSummary";
 
 const initialTrip = {
   destination: "Đà Lạt Mộng Mơ 🌸",
@@ -48,7 +49,7 @@ const initialPastTrips = [
 ];
 
 export function TravelTab() {
-  const [view, setView] = useState<'overview' | 'packing' | 'itinerary' | 'diary'>('overview');
+  const [view, setView] = useState<'overview' | 'packing' | 'itinerary' | 'diary' | 'summary'>('overview');
   const [trip, setTrip] = useFirebaseSync('couple_trip', initialTrip);
   const [pastTrips, setPastTrips] = useFirebaseSync('couple_past_trips', initialPastTrips);
   const [selectedPastTrip, setSelectedPastTrip] = useState<any>(null);
@@ -117,14 +118,18 @@ export function TravelTab() {
     setIsEditTripModalOpen(true);
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setEditTripData(prev => ({ ...prev, image: reader.result as string }));
-      };
-      reader.readAsDataURL(file);
+      try {
+        const { compressImage } = await import('../lib/imageUtils');
+        const compressed = await compressImage(file, 200, 800);
+        setEditTripData(prev => ({ ...prev, image: compressed }));
+      } catch {
+        const reader = new FileReader();
+        reader.onloadend = () => setEditTripData(prev => ({ ...prev, image: reader.result as string }));
+        reader.readAsDataURL(file);
+      }
     }
   };
 
@@ -175,13 +180,22 @@ export function TravelTab() {
     );
   }
 
+  if (view === 'summary') {
+    return (
+      <TripSummary
+        trip={trip}
+        onBack={() => setView('overview')}
+      />
+    );
+  }
+
   return (
     <div className="pb-24 space-y-6 pt-6 px-4 max-w-md mx-auto">
       {/* Next Trip Countdown */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="relative rounded-[2rem] overflow-hidden shadow-lg group min-h-[280px] flex flex-col justify-end"
+        className="relative rounded-[2rem] overflow-hidden shadow-lg group min-h-[340px] flex flex-col justify-end"
       >
         {/* Background Image */}
         <div className="absolute inset-0">
@@ -190,99 +204,103 @@ export function TravelTab() {
             alt={trip.destination}
             className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/10" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
         </div>
 
-        <div className="relative z-10 p-6 text-white">
-          <div className="flex items-center justify-between mb-auto pb-8">
-            <div className="flex items-center gap-2 bg-black/20 backdrop-blur-md px-3 py-1.5 rounded-full">
-              <Plane size={16} className="text-pink-300" />
-              <span className="text-xs font-bold uppercase tracking-wider text-pink-100">Chuyến đi sắp tới</span>
-            </div>
-            <button
-              onClick={openEditTripModal}
-              className="p-2 bg-black/20 backdrop-blur-md rounded-full hover:bg-white/20 transition-colors"
-            >
-              <Edit2 size={16} />
-            </button>
+        {/* Top bar */}
+        <div className="absolute top-3 left-3 right-3 z-10 flex items-center justify-between">
+          <div className="flex items-center gap-1.5 bg-black/25 backdrop-blur-md px-2.5 py-1 rounded-full">
+            <Plane size={12} className="text-pink-300" />
+            <span className="text-[10px] font-bold uppercase tracking-wider text-pink-100">Chuyến đi sắp tới</span>
+          </div>
+          <button
+            onClick={openEditTripModal}
+            className="p-1.5 bg-black/25 backdrop-blur-md rounded-full hover:bg-white/20 transition-colors"
+          >
+            <Edit2 size={14} />
+          </button>
+        </div>
+
+        {/* Bottom content - compact */}
+        <div className="relative z-10 px-4 pb-4 pt-2 text-white">
+          <h2 className="text-3xl font-bold font-serif leading-tight text-white drop-shadow-md mb-1">{trip.destination}</h2>
+
+          {/* Date / time / budget - single compact line */}
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] font-medium text-gray-200 mb-2.5 opacity-90">
+            <div className="flex items-center gap-1"><Calendar size={10} /><span>{trip.startDate}{trip.endDate ? ` - ${trip.endDate}` : ''}</span></div>
+            <span>•</span>
+            <div className="flex items-center gap-1"><Clock size={10} /><span>{trip.time}</span></div>
+            {trip.budget > 0 && (<><span>•</span><div className="flex items-center gap-1 text-emerald-300"><Wallet size={10} /><span>{trip.budget.toLocaleString('vi-VN')} đ</span></div></>)}
           </div>
 
-          <h2 className="text-4xl font-bold font-serif mb-2 leading-tight text-white drop-shadow-md">{trip.destination}</h2>
-
-          <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-gray-200 mb-4 opacity-90">
-            <div className="flex items-center gap-1">
-              <Calendar size={12} />
-              <span>{trip.startDate} {trip.endDate ? `- ${trip.endDate}` : ''}</span>
+          {/* Compact inline countdown */}
+          <div className="flex items-center gap-3 mt-3">
+            <div className="flex flex-col items-center">
+              <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center shadow-inner">
+                <span className="text-xl font-bold text-white drop-shadow-md">{countdown.days}</span>
+              </div>
+              <span className="text-[9px] uppercase tracking-wider opacity-80 mt-1 font-semibold text-pink-100">Ngày</span>
             </div>
-            <span className="mx-1">•</span>
-            <div className="flex items-center gap-1">
-              <Clock size={12} />
-              <span>{trip.time}</span>
+            <span className="text-white/50 text-xl font-light -mt-4">:</span>
+            <div className="flex flex-col items-center">
+              <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center shadow-inner">
+                <span className="text-xl font-bold text-white drop-shadow-md">{countdown.hours}</span>
+              </div>
+              <span className="text-[9px] uppercase tracking-wider opacity-80 mt-1 font-semibold text-pink-100">Giờ</span>
             </div>
-            {trip.budget > 0 && (
-              <>
-                <span className="mx-1">•</span>
-                <div className="flex items-center gap-1 text-emerald-300">
-                  <Wallet size={12} />
-                  <span>{trip.budget.toLocaleString('vi-VN')} đ</span>
-                </div>
-              </>
-            )}
-          </div>
-
-          <div className="flex gap-2">
-            <div className="bg-black/30 backdrop-blur-md rounded-xl p-1.5 flex-1 text-center border border-white/10">
-              <span className="block text-lg font-bold text-pink-300">{countdown.days}</span>
-              <span className="text-[9px] uppercase tracking-wider opacity-80">Ngày</span>
-            </div>
-            <div className="bg-black/30 backdrop-blur-md rounded-xl p-1.5 flex-1 text-center border border-white/10">
-              <span className="block text-lg font-bold text-pink-300">{countdown.hours}</span>
-              <span className="text-[9px] uppercase tracking-wider opacity-80">Giờ</span>
-            </div>
-            <div className="bg-black/30 backdrop-blur-md rounded-xl p-1.5 flex-1 text-center border border-white/10">
-              <span className="block text-lg font-bold text-pink-300">{countdown.minutes}</span>
-              <span className="text-[9px] uppercase tracking-wider opacity-80">Phút</span>
+            <span className="text-white/50 text-xl font-light -mt-4">:</span>
+            <div className="flex flex-col items-center">
+              <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center shadow-inner">
+                <span className="text-xl font-bold text-white drop-shadow-md">{countdown.minutes}</span>
+              </div>
+              <span className="text-[9px] uppercase tracking-wider opacity-80 mt-1 font-semibold text-pink-100">Phút</span>
             </div>
           </div>
         </div>
       </motion.div>
 
-      {/* Planning Tools */}
-      <div className="grid grid-cols-3 gap-3">
+      {/* Planning Tools - 2x2 grid */}
+      <div className="grid grid-cols-2 gap-3">
         <motion.button
           whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
+          whileTap={{ scale: 0.95 }}
           onClick={() => setView('packing')}
-          className="bg-white/70 backdrop-blur-md p-4 rounded-[2rem] border-2 border-white shadow-sm flex flex-col items-center gap-2 text-center"
+          className="bg-white/70 backdrop-blur-md p-5 rounded-[2rem] border-2 border-white shadow-sm flex flex-col items-center gap-2 text-center"
         >
-          <div className="w-10 h-10 bg-orange-100 text-orange-500 rounded-full flex items-center justify-center text-xl">
-            🎒
-          </div>
-          <span className="font-bold text-gray-700 text-xs">Hành lý</span>
+          <div className="w-12 h-12 bg-orange-100 text-orange-500 rounded-2xl flex items-center justify-center text-2xl shadow-sm">🎒</div>
+          <span className="font-bold text-gray-700 text-sm">Hành lý</span>
         </motion.button>
 
         <motion.button
           whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
+          whileTap={{ scale: 0.95 }}
           onClick={() => setView('itinerary')}
-          className="bg-white/70 backdrop-blur-md p-4 rounded-[2rem] border-2 border-white shadow-sm flex flex-col items-center gap-2 text-center"
+          className="bg-white/70 backdrop-blur-md p-5 rounded-[2rem] border-2 border-white shadow-sm flex flex-col items-center gap-2 text-center"
         >
-          <div className="w-10 h-10 bg-green-100 text-green-500 rounded-full flex items-center justify-center text-xl">
-            🗺️
-          </div>
-          <span className="font-bold text-gray-700 text-xs">Lịch trình</span>
+          <div className="w-12 h-12 bg-green-100 text-green-500 rounded-2xl flex items-center justify-center text-2xl shadow-sm">🗺️</div>
+          <span className="font-bold text-gray-700 text-sm">Lịch trình</span>
         </motion.button>
 
         <motion.button
           whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
+          whileTap={{ scale: 0.95 }}
           onClick={() => setView('diary')}
-          className="bg-white/70 backdrop-blur-md p-4 rounded-[2rem] border-2 border-white shadow-sm flex flex-col items-center gap-2 text-center"
+          className="bg-white/70 backdrop-blur-md p-5 rounded-[2rem] border-2 border-white shadow-sm flex flex-col items-center gap-2 text-center"
         >
-          <div className="w-10 h-10 bg-rose-100 text-rose-500 rounded-full flex items-center justify-center text-xl">
-            <Book size={20} />
+          <div className="w-12 h-12 bg-rose-100 text-rose-500 rounded-2xl flex items-center justify-center shadow-sm">
+            <Book size={22} />
           </div>
-          <span className="font-bold text-gray-700 text-xs">Nhật ký</span>
+          <span className="font-bold text-gray-700 text-sm">Nhật ký</span>
+        </motion.button>
+
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => setView('summary')}
+          className="bg-white/70 backdrop-blur-md p-5 rounded-[2rem] border-2 border-white shadow-sm flex flex-col items-center gap-2 text-center"
+        >
+          <div className="w-12 h-12 bg-purple-100 text-purple-500 rounded-2xl flex items-center justify-center text-2xl shadow-sm">📊</div>
+          <span className="font-bold text-gray-700 text-sm">Tổng kết</span>
         </motion.button>
       </div>
 
@@ -452,6 +470,6 @@ export function TravelTab() {
           ))}
         </div>
       </Modal>
-    </div>
+    </div >
   );
 }

@@ -1,5 +1,5 @@
-import { motion } from "motion/react";
-import { Heart, Camera, Calendar, Star, Plus, Upload, Download, Trash2, Edit2, Gift, Music, Coffee, Plane } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
+import { Heart, Camera, Calendar, Star, Plus, Upload, Download, Trash2, Edit2, Gift, Music, Coffee, Plane, X, ZoomIn } from "lucide-react";
 import { Header } from "./Header";
 import React, { useState, FormEvent, useRef, useEffect, ChangeEvent } from "react";
 import { Modal } from "./ui/Modal";
@@ -8,8 +8,7 @@ import { ImageCropper } from "./ui/ImageCropper";
 import * as htmlToImage from "html-to-image";
 import jsPDF from "jspdf";
 import { useFirebaseSync } from "../hooks/useFirebaseSync";
-import { ref, uploadString, getDownloadURL } from "firebase/storage";
-import { storage } from "../lib/firebase";
+import { usePhotosSync } from "../hooks/usePhotosSync";
 
 const iconMap: Record<string, React.ElementType> = {
   Heart,
@@ -61,7 +60,10 @@ interface MemoriesTabProps {
 
 export function MemoriesTab({ profile, onOpenSettings }: MemoriesTabProps) {
   const [milestones, setMilestones] = useFirebaseSync<Milestone[]>('couple_milestones', initialMilestones);
-  const [photos, setPhotos] = useFirebaseSync<string[]>('couple_photos', initialPhotos);
+  const { photoItems, addPhoto, updatePhotoNote, updatePhotoUrl, deletePhoto: removePhotoById } = usePhotosSync();
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [noteInput, setNoteInput] = useState('');
+  const [lightboxItem, setLightboxItem] = useState<{ id: string; url: string; note: string } | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newMilestone, setNewMilestone] = useState({
@@ -80,7 +82,9 @@ export function MemoriesTab({ profile, onOpenSettings }: MemoriesTabProps) {
   const [exportFormat, setExportFormat] = useState('auto');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const editFileInputRef = useRef<HTMLInputElement>(null);
   const albumRef = useRef<HTMLDivElement>(null);
+  const [editingPhotoIdForImage, setEditingPhotoIdForImage] = useState<string | null>(null);
 
   // LocalStorage generic useEffects removed in favor of useFirebaseSync
 
@@ -132,31 +136,54 @@ export function MemoriesTab({ profile, onOpenSettings }: MemoriesTabProps) {
     setMilestones(prev => prev.filter(m => m.id !== id));
   };
 
-  const deletePhoto = (index: number) => {
-    const newPhotos = photos.filter((_, i) => i !== index);
-    setPhotos(newPhotos);
+  const deletePhoto = (id: string) => {
+    removePhotoById(id);
   };
 
-  const handlePhotoUpload = (e: ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (files && files.length > 0) {
-      const newPendingPhotos: string[] = [];
-      let loadedCount = 0;
+    if (!files || files.length === 0) return;
 
-      for (let i = 0; i < files.length; i++) {
-        const reader = new FileReader();
-        reader.onload = () => {
-          newPendingPhotos.push(reader.result as string);
-          loadedCount++;
-          if (loadedCount === files.length) {
-            setPendingPhotos(newPendingPhotos);
-            setCurrentCropIndex(0);
-            setIsCropping(true);
-          }
-        };
-        reader.readAsDataURL(files[i]);
+    if (files.length === 1) {
+      // Single file: go through crop flow
+      const reader = new FileReader();
+      reader.onload = () => {
+        setPendingPhotos([reader.result as string]);
+        setCurrentCropIndex(0);
+        setIsCropping(true);
+      };
+      reader.readAsDataURL(files[0]);
+    } else {
+      // Multiple files: compress all directly and add each as its own document
+      setIsUploading(true);
+      try {
+        const { compressImage } = await import('../lib/imageUtils');
+        const compressed = await Promise.all(
+          Array.from(files).map(file => compressImage(file as File, 200, 800))
+        );
+        for (const url of compressed) {
+          await addPhoto(url);
+        }
+      } catch (e) {
+        console.error("Lỗi khi nén ảnh:", e);
+      } finally {
+        setIsUploading(false);
+        if (fileInputRef.current) fileInputRef.current.value = '';
       }
     }
+  };
+
+  const handleEditPhotoUpload = async (e: ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0 || !editingPhotoIdForImage) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setPendingPhotos([reader.result as string]);
+      setCurrentCropIndex(0);
+      setIsCropping(true);
+    };
+    reader.readAsDataURL(files[0]);
   };
 
   const handleCropComplete = async (croppedImage: string) => {
@@ -164,31 +191,38 @@ export function MemoriesTab({ profile, onOpenSettings }: MemoriesTabProps) {
     setIsUploading(true);
 
     try {
-      // Bypassing Firebase Storage due to billing limitations.
-      // Saving directly as base64 string to Firestore via the sync hook.
-      setPhotos(prev => [croppedImage, ...prev]);
+      const { compressImage } = await import('../lib/imageUtils');
+      const compressed = await compressImage(croppedImage, 200, 800);
+      if (editingPhotoIdForImage) {
+        await updatePhotoUrl(editingPhotoIdForImage, compressed);
+      } else {
+        await addPhoto(compressed);
+      }
     } catch (e) {
-      console.error("Lỗi khi tải ảnh:", e);
+      console.error("Lỗi khi nén ảnh:", e);
+      if (editingPhotoIdForImage) {
+        await updatePhotoUrl(editingPhotoIdForImage, croppedImage);
+      } else {
+        await addPhoto(croppedImage);
+      }
     }
 
     setIsUploading(false);
-
-    if (currentCropIndex < pendingPhotos.length - 1) {
-      setCurrentCropIndex(prev => prev + 1);
-      setTimeout(() => setIsCropping(true), 200);
-    } else {
-      setPendingPhotos([]);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-    }
+    setPendingPhotos([]);
+    setEditingPhotoIdForImage(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (editFileInputRef.current) editFileInputRef.current.value = '';
   };
 
   const handleCropCancel = () => {
     setIsCropping(false);
     setPendingPhotos([]);
+    setEditingPhotoIdForImage(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
+    }
+    if (editFileInputRef.current) {
+      editFileInputRef.current.value = '';
     }
   };
 
@@ -346,34 +380,136 @@ export function MemoriesTab({ profile, onOpenSettings }: MemoriesTabProps) {
               multiple
               className="hidden"
             />
+            <input
+              type="file"
+              ref={editFileInputRef}
+              onChange={handleEditPhotoUpload}
+              accept="image/*"
+              className="hidden"
+            />
           </div>
 
-          <div ref={albumRef} className="grid grid-cols-2 gap-4 bg-amber-50/50 p-6 rounded-2xl border border-amber-100/50 min-h-[200px]">
-            {photos.length === 0 && (
+          <div ref={albumRef} className="grid grid-cols-2 gap-4 bg-amber-50/50 p-4 rounded-2xl border border-amber-100/50 min-h-[200px]">
+            {photoItems.length === 0 && (
               <div className="col-span-2 text-center text-gray-400 py-10 font-medium">
                 Chưa có ảnh nào. Tải lên ngay! 📸
               </div>
             )}
-            {photos.map((photo, i) => (
+            {photoItems.map((item, i) => (
               <div
-                key={i}
-                className={`group relative bg-white p-2 pb-8 rounded-sm shadow-md border border-gray-100 hover:scale-105 hover:shadow-xl hover:z-10 transition-all duration-300 ${i % 3 === 2 ? 'col-span-2 aspect-[3/2] rotate-1' : 'aspect-square -rotate-2'}`}
+                key={item.id}
+                className={`group relative bg-white p-2 pb-2 rounded-sm shadow-md border border-gray-100 hover:shadow-xl hover:z-10 transition-all duration-300 cursor-pointer ${i % 3 === 2 ? 'col-span-2 rotate-1' : '-rotate-2'}`}
+                onClick={() => setLightboxItem(item)}
               >
                 <img
-                  src={photo}
+                  src={item.url}
                   alt="Love memory"
-                  className="w-full h-full object-cover rounded-sm"
+                  className={`w-full object-cover rounded-sm ${i % 3 === 2 ? 'aspect-[3/2]' : 'aspect-square'}`}
                   referrerPolicy="no-referrer"
                 />
-                <button
-                  onClick={(e) => { e.stopPropagation(); deletePhoto(i); }}
-                  className="absolute top-3 right-3 p-1.5 bg-red-500/80 text-white rounded-full opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity hover:bg-red-600"
-                >
-                  <Trash2 size={14} />
-                </button>
+                {/* Zoom hint */}
+                <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/10 transition-colors rounded-sm">
+                  <ZoomIn size={24} className="text-white opacity-0 group-hover:opacity-70 transition-opacity drop-shadow" />
+                </div>
+                {/* Inline editable note */}
+                <div className="mt-1.5 mx-1" onClick={e => e.stopPropagation()}>
+                  {editingNoteId === item.id ? (
+                    <div className="flex gap-1">
+                      <input
+                        autoFocus
+                        value={noteInput}
+                        onChange={e => setNoteInput(e.target.value)}
+                        onBlur={() => { updatePhotoNote(item.id, noteInput); setEditingNoteId(null); }}
+                        onKeyDown={e => { if (e.key === 'Enter') { updatePhotoNote(item.id, noteInput); setEditingNoteId(null); } }}
+                        className="flex-1 text-xs text-center text-gray-600 bg-yellow-50 border border-yellow-200 rounded px-1 py-0.5 focus:outline-none"
+                        placeholder="Ghi chú..."
+                      />
+                    </div>
+                  ) : (
+                    <p
+                      onClick={() => { setEditingNoteId(item.id); setNoteInput(item.note); }}
+                      className="text-xs text-center text-gray-500 italic truncate cursor-pointer hover:text-rose-400 min-h-[1.25rem]"
+                    >
+                      {item.note || <span className="text-gray-300">+ Ghi chú...</span>}
+                    </p>
+                  )}
+                </div>
+                {/* Delete and Edit overlay buttons */}
+                <div className="absolute top-2 right-2 flex flex-col gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingPhotoIdForImage(item.id);
+                      editFileInputRef.current?.click();
+                    }}
+                    title="Sửa ảnh"
+                    className="p-1.5 bg-black/40 text-white rounded-full hover:bg-blue-500 transition-colors"
+                  >
+                    <Edit2 size={11} />
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); deletePhoto(item.id); }}
+                    title="Xóa ảnh"
+                    className="p-1.5 bg-black/40 text-white rounded-full hover:bg-red-500 transition-colors"
+                  >
+                    <Trash2 size={11} />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
+
+          {/* Lightbox */}
+          <AnimatePresence>
+            {lightboxItem && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-50 bg-black/90 flex flex-col items-center justify-center p-4"
+                onClick={() => setLightboxItem(null)}
+              >
+                <button
+                  className="absolute top-5 right-5 p-2 bg-white/20 text-white rounded-full hover:bg-white/30 transition-colors"
+                  onClick={() => setLightboxItem(null)}
+                >
+                  <X size={22} />
+                </button>
+                <motion.img
+                  initial={{ scale: 0.85 }}
+                  animate={{ scale: 1 }}
+                  exit={{ scale: 0.85 }}
+                  src={lightboxItem.url}
+                  alt="Love memory"
+                  className="max-w-full max-h-[75vh] rounded-2xl object-contain shadow-2xl"
+                  onClick={e => e.stopPropagation()}
+                />
+                {lightboxItem.note && (
+                  <p className="mt-4 text-white/80 text-center text-sm italic max-w-xs">{lightboxItem.note}</p>
+                )}
+
+                <div className="flex items-center gap-3 mt-4">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingPhotoIdForImage(lightboxItem.id);
+                      setLightboxItem(null);
+                      editFileInputRef.current?.click();
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-500/80 text-white rounded-xl text-sm font-semibold hover:bg-blue-600 transition-colors"
+                  >
+                    <Edit2 size={14} /> Thay ảnh
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); deletePhoto(lightboxItem.id); setLightboxItem(null); }}
+                    className="flex items-center gap-2 px-4 py-2 bg-red-500/80 text-white rounded-xl text-sm font-semibold hover:bg-red-600 transition-colors"
+                  >
+                    <Trash2 size={14} /> Xóa ảnh
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </motion.div>
       </div>
 

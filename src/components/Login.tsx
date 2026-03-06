@@ -40,11 +40,21 @@ export function Login({ onComplete }: LoginProps) {
     }
   };
 
-  const handleCropComplete = (croppedImage: string) => {
-    if (currentPartnerCrop === 1) {
-      setPartner1({ ...partner1, avatar: croppedImage });
-    } else if (currentPartnerCrop === 2) {
-      setPartner2({ ...partner2, avatar: croppedImage });
+  const handleCropComplete = async (croppedImage: string) => {
+    try {
+      const { compressImage } = await import('../lib/imageUtils');
+      const compressed = await compressImage(croppedImage, 150, 400);
+      if (currentPartnerCrop === 1) {
+        setPartner1({ ...partner1, avatar: compressed });
+      } else if (currentPartnerCrop === 2) {
+        setPartner2({ ...partner2, avatar: compressed });
+      }
+    } catch {
+      if (currentPartnerCrop === 1) {
+        setPartner1({ ...partner1, avatar: croppedImage });
+      } else if (currentPartnerCrop === 2) {
+        setPartner2({ ...partner2, avatar: croppedImage });
+      }
     }
     setCropImageSrc(null);
     setCurrentPartnerCrop(null);
